@@ -1,4 +1,6 @@
 .edge-temp*/
+preview-*.png
+*.legacy
 *.log
 Thumbs.db
 .DS_Store
