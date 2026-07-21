@@ -1,0 +1,334 @@
+(function () {
+    const catalog = window.SISCAT_CATALOG || {};
+    const state = {
+        service: Object.keys(catalog)[0] || '',
+        compliance: 'SI',
+        pending: []
+    };
+
+    const el = {
+        welcomePanel: document.getElementById('welcomePanel'),
+        workspace: document.getElementById('workspace'),
+        backToDashboard: document.getElementById('backToDashboard'),
+        moduleTiles: document.querySelectorAll('.module-tile'),
+        serviceTabs: document.getElementById('serviceTabs'),
+        serviceSelect: document.getElementById('serviceSelect'),
+        groupSelect: document.getElementById('groupSelect'),
+        itemSelect: document.getElementById('itemSelect'),
+        materialSelect: document.getElementById('materialSelect'),
+        conditionSelect: document.getElementById('conditionSelect'),
+        quantityInput: document.getElementById('quantityInput'),
+        qtyMinus: document.getElementById('qtyMinus'),
+        qtyPlus: document.getElementById('qtyPlus'),
+        smartForm: document.getElementById('smartForm'),
+        observationPreview: document.getElementById('observationPreview'),
+        recommendationSelect: document.getElementById('recommendationSelect'),
+        pendingList: document.getElementById('pendingList'),
+        payloadInput: document.getElementById('payloadInput'),
+        autoChecks: document.getElementById('autoChecks'),
+        roomName: document.getElementById('roomName'),
+        mainRequirement: document.getElementById('mainRequirement'),
+        saveButton: document.querySelector('.save-button'),
+        complianceButtons: document.querySelectorAll('[data-compliance]')
+    };
+
+    function openWorkspace() {
+        el.welcomePanel.classList.add('is-hidden');
+        el.workspace.classList.remove('is-hidden');
+    }
+
+    function openDashboard() {
+        el.workspace.classList.add('is-hidden');
+        el.welcomePanel.classList.remove('is-hidden');
+    }
+
+    function escapeHtml(value) {
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function getChecks() {
+        return catalog[state.service]?.checks || [];
+    }
+
+    function getGroups() {
+        return [...new Set(getChecks().map((item) => item.group))];
+    }
+
+    function getSelectedItem() {
+        const checks = getChecks();
+        return checks.find((item) => item.name === el.itemSelect.value) || checks[0];
+    }
+
+    function setOptions(select, options, selectedValue) {
+        select.innerHTML = options.map((option) => {
+            const value = typeof option === 'string' ? option : option.value;
+            const label = typeof option === 'string' ? option : option.label;
+            const selected = selectedValue === value ? ' selected' : '';
+            return `<option value="${escapeHtml(value)}"${selected}>${escapeHtml(label)}</option>`;
+        }).join('');
+    }
+
+    function renderServiceTabs() {
+        el.serviceTabs.innerHTML = Object.entries(catalog).map(([key, service]) => {
+            const readyCount = state.pending.filter((item) => item.service === key).length;
+            const active = key === state.service ? ' is-active' : '';
+            return `
+                <button class="service-tab${active}" type="button" data-service="${escapeHtml(key)}">
+                    <strong>${escapeHtml(service.label)}</strong>
+                    <small>${escapeHtml(service.room)} | ${readyCount} seleccionados</small>
+                </button>
+            `;
+        }).join('');
+    }
+
+    function renderServiceSelect() {
+        const options = Object.entries(catalog).map(([value, service]) => ({
+            value,
+            label: service.label
+        }));
+        setOptions(el.serviceSelect, options, state.service);
+    }
+
+    function refreshGroupSelect() {
+        const groups = getGroups();
+        const current = groups.includes(el.groupSelect.value) ? el.groupSelect.value : groups[0];
+        setOptions(el.groupSelect, groups, current);
+    }
+
+    function refreshItemSelect() {
+        const checks = getChecks().filter((item) => item.group === el.groupSelect.value);
+        const current = checks.some((item) => item.name === el.itemSelect.value) ? el.itemSelect.value : checks[0]?.name;
+        setOptions(el.itemSelect, checks.map((item) => item.name), current);
+    }
+
+    function refreshMaterialSelect() {
+        const item = getSelectedItem();
+        const materials = item?.materials || [];
+        setOptions(el.materialSelect, materials, materials[0]);
+        el.quantityInput.value = item?.defaultQty ?? 1;
+    }
+
+    function renderContext() {
+        const service = catalog[state.service];
+        el.roomName.textContent = service?.room || '';
+        const firstCheck = service?.checks?.[0]?.name || 'Consultorio fisico con lavamanos';
+        el.mainRequirement.querySelector('span').textContent = firstCheck;
+    }
+
+    function buildObservation() {
+        const service = catalog[state.service];
+        const item = getSelectedItem();
+        if (!service || !item) {
+            return '';
+        }
+
+        const quantity = Number(el.quantityInput.value || 0);
+        const material = el.materialSelect.value;
+        const condition = el.conditionSelect.value;
+        const recommendation = el.recommendationSelect.value;
+
+        const base = `${quantity} ${item.name} | Servicio: ${service.label} | Detalle: ${item.detail} | Material: ${material} | Estado: ${condition} | Cumple: ${state.compliance}.`;
+        return recommendation ? `${base} Recomendacion: ${recommendation}.` : base;
+    }
+
+    function refreshObservation() {
+        el.observationPreview.textContent = buildObservation();
+    }
+
+    function renderAutoChecks() {
+        const checks = getChecks();
+        el.autoChecks.innerHTML = checks.map((item) => {
+            const selected = state.pending.find((entry) => entry.service === state.service && entry.item === item.name);
+            const readyClass = selected ? ' is-ready' : '';
+            const qty = selected ? `${selected.quantity} und.` : 'pendiente';
+            return `
+                <div class="auto-check${readyClass}">
+                    <i aria-hidden="true"></i>
+                    <div>
+                        <strong>${escapeHtml(item.name)}</strong>
+                        <span>${escapeHtml(item.group)} | ${escapeHtml(item.detail)}</span>
+                    </div>
+                    <em>${escapeHtml(qty)}</em>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function syncPayload() {
+        el.payloadInput.value = JSON.stringify({
+            establecimiento: 'CENTRO DE SALUD JUAN GUERRA (I-3)',
+            modulo: 'INFRAESTRUCTURA',
+            upss: 'CONSULTA EXTERNA',
+            registros: state.pending
+        });
+    }
+
+    function renderPending() {
+        if (!state.pending.length) {
+            el.pendingList.innerHTML = '<div class="pending-empty">No hay elementos seleccionados.</div>';
+            syncPayload();
+            renderServiceTabs();
+            renderAutoChecks();
+            return;
+        }
+
+        el.pendingList.innerHTML = state.pending.map((entry, index) => `
+            <article class="pending-item">
+                <div>
+                    <strong>${escapeHtml(entry.quantity)} x ${escapeHtml(entry.item)}</strong>
+                    <span>${escapeHtml(entry.serviceLabel)} | ${escapeHtml(entry.group)} | ${escapeHtml(entry.material)} | ${escapeHtml(entry.condition)}</span>
+                </div>
+                <button type="button" data-remove="${index}" aria-label="Quitar seleccion">x</button>
+            </article>
+        `).join('');
+        syncPayload();
+        renderServiceTabs();
+        renderAutoChecks();
+    }
+
+    function addCurrentSelection() {
+        const service = catalog[state.service];
+        const item = getSelectedItem();
+        if (!service || !item) {
+            return;
+        }
+
+        const entry = {
+            service: state.service,
+            serviceLabel: service.label,
+            room: service.room,
+            group: item.group,
+            item: item.name,
+            detail: item.detail,
+            material: el.materialSelect.value,
+            condition: el.conditionSelect.value,
+            quantity: Number(el.quantityInput.value || 0),
+            compliance: state.compliance,
+            recommendation: el.recommendationSelect.value,
+            observation: buildObservation()
+        };
+
+        const existingIndex = state.pending.findIndex((pending) =>
+            pending.service === entry.service &&
+            pending.item === entry.item &&
+            pending.material === entry.material
+        );
+
+        if (existingIndex >= 0) {
+            state.pending[existingIndex] = entry;
+        } else {
+            state.pending.push(entry);
+        }
+
+        renderPending();
+    }
+
+    function selectService(serviceKey) {
+        state.service = serviceKey;
+        renderServiceTabs();
+        renderServiceSelect();
+        refreshGroupSelect();
+        refreshItemSelect();
+        refreshMaterialSelect();
+        renderContext();
+        renderAutoChecks();
+        refreshObservation();
+    }
+
+    function initEvents() {
+        el.moduleTiles.forEach((tile) => {
+            tile.addEventListener('click', () => {
+                el.moduleTiles.forEach((item) => item.classList.remove('is-active'));
+                tile.classList.add('is-active');
+                if (tile.dataset.module === 'infraestructura') {
+                    openWorkspace();
+                }
+            });
+        });
+
+        el.backToDashboard.addEventListener('click', openDashboard);
+
+        el.serviceTabs.addEventListener('click', (event) => {
+            const button = event.target.closest('[data-service]');
+            if (button) {
+                selectService(button.dataset.service);
+            }
+        });
+
+        el.serviceSelect.addEventListener('change', () => selectService(el.serviceSelect.value));
+        el.groupSelect.addEventListener('change', () => {
+            refreshItemSelect();
+            refreshMaterialSelect();
+            refreshObservation();
+        });
+        el.itemSelect.addEventListener('change', () => {
+            refreshMaterialSelect();
+            refreshObservation();
+        });
+        el.materialSelect.addEventListener('change', refreshObservation);
+        el.conditionSelect.addEventListener('change', refreshObservation);
+        el.recommendationSelect.addEventListener('change', refreshObservation);
+        el.quantityInput.addEventListener('input', refreshObservation);
+
+        el.qtyMinus.addEventListener('click', () => {
+            el.quantityInput.value = Math.max(0, Number(el.quantityInput.value || 0) - 1);
+            refreshObservation();
+        });
+
+        el.qtyPlus.addEventListener('click', () => {
+            el.quantityInput.value = Math.min(99, Number(el.quantityInput.value || 0) + 1);
+            refreshObservation();
+        });
+
+        el.complianceButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                state.compliance = button.dataset.compliance;
+                el.complianceButtons.forEach((item) => item.classList.remove('is-active'));
+                button.classList.add('is-active');
+                refreshObservation();
+            });
+        });
+
+        el.smartForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            addCurrentSelection();
+        });
+
+        el.pendingList.addEventListener('click', (event) => {
+            const button = event.target.closest('[data-remove]');
+            if (!button) {
+                return;
+            }
+            state.pending.splice(Number(button.dataset.remove), 1);
+            renderPending();
+        });
+
+        el.saveButton.addEventListener('click', () => {
+            syncPayload();
+            el.saveButton.textContent = 'Guardado en demo';
+            window.setTimeout(() => {
+                el.saveButton.textContent = 'Guardar demo';
+            }, 1600);
+        });
+    }
+
+    function init() {
+        renderServiceSelect();
+        renderServiceTabs();
+        refreshGroupSelect();
+        refreshItemSelect();
+        refreshMaterialSelect();
+        renderContext();
+        renderAutoChecks();
+        renderPending();
+        refreshObservation();
+        initEvents();
+    }
+
+    init();
+})();

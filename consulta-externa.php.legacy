@@ -1,0 +1,96 @@
+<?php
+require_once __DIR__ . '/includes/data.php';
+require_once __DIR__ . '/includes/layout.php';
+
+render_page_start('SISCAT Demo - Consulta Externa', $establishment, 'infraestructura');
+?>
+
+        <section class="page-heading">
+            <div>
+                <span>UPSS</span>
+                <h1>Consulta externa</h1>
+                <p>Servicios organizados como padre, hijos y detalles para reducir escritura manual.</p>
+            </div>
+            <a class="secondary-link" href="infraestructura.php"><?= icon('chevron') ?><span>Regresar</span></a>
+        </section>
+
+        <section class="workspace" aria-label="Consulta externa">
+            <?php render_upss_sidebar($upss, 'consulta_externa'); ?>
+
+            <section class="content-panel">
+                <div class="section-title">
+                    <?= icon('clipboard') ?>
+                    <div>
+                        <span>CONSULTA EXTERNA</span>
+                        <b>Arbol de criterios</b>
+                        <em>Servicio -> Componente -> Detalle</em>
+                    </div>
+                </div>
+
+                <div class="tree-root">
+                    <div class="tree-parent">
+                        <span class="tree-icon"><?= icon('clipboard') ?></span>
+                        <div>
+                            <strong>CONSULTA EXTERNA</strong>
+                            <small>Padre UPSS</small>
+                        </div>
+                    </div>
+
+                    <?php foreach ($consultaTree as $serviceKey => $service): ?>
+                        <article class="tree-service">
+                            <header>
+                                <span><?= icon($service['icon']) ?></span>
+                                <div>
+                                    <strong><?= e($service['label']) ?></strong>
+                                    <small><?= e($service['description']) ?> | <?= count_service_items($service) ?> detalles</small>
+                                </div>
+                            </header>
+
+                            <div class="tree-groups">
+                                <?php foreach ($service['groups'] as $groupKey => $group): ?>
+                                    <div class="tree-group">
+                                        <div class="tree-group-title">
+                                            <?= icon($group['icon']) ?>
+                                            <span><?= e($group['label']) ?></span>
+                                        </div>
+                                        <div class="tree-items">
+                                            <?php foreach ($group['items'] as $item): ?>
+                                                <a href="captura.php?servicio=<?= e($serviceKey) ?>&item=<?= e($item['id']) ?>">
+                                                    <span><?= icon('chevron') ?></span>
+                                                    <div>
+                                                        <strong><?= e($item['label']) ?></strong>
+                                                        <small><?= e($item['detail']) ?></small>
+                                                    </div>
+                                                    <em class="<?= $item['required'] === 'Obligatorio' ? 'badge-required' : 'badge-optional' ?>"><?= e($item['required']) ?></em>
+                                                </a>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </article>
+                    <?php endforeach; ?>
+                </div>
+            </section>
+
+            <aside class="capture-panel compact">
+                <div class="capture-heading">
+                    <h2>Flujo propuesto</h2>
+                    <span>CONSULTA EXTERNA</span>
+                    <small>Selecciona un detalle del arbol para abrir su pagina de captura.</small>
+                </div>
+
+                <div class="process-list">
+                    <div><?= icon('clipboard') ?><span>UPSS: Consulta Externa</span></div>
+                    <div><?= icon('stethoscope') ?><span>Servicio: Medicina, Enfermeria u Obstetricia</span></div>
+                    <div><?= icon('briefcase') ?><span>Componente: infraestructura, equipo, mobiliario o RRHH</span></div>
+                    <div><?= icon('file') ?><span>Detalle: item exacto con material, estado y cantidad</span></div>
+                </div>
+
+                <a class="primary-link full" href="captura.php?servicio=medicina&item=<?= e(first_item_id($consultaTree, 'medicina')) ?>">
+                    <?= icon('stethoscope') ?><span>Capturar primer item</span>
+                </a>
+            </aside>
+        </section>
+
+<?php render_footer(); ?>
