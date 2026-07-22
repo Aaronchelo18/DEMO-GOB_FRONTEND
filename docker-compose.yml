@@ -1,0 +1,20 @@
+name: demo-gob
+
+services:
+  demo-gob-backend:
+    build:
+      context: ../DEMO-GOB_BACKEND
+    ports:
+      - "8081:80"
+    volumes:
+      - ../DEMO-GOB_BACKEND/storage:/var/www/html/storage
+
+  demo-gob-frontend:
+    build:
+      context: .
+    ports:
+      - "8080:80"
+    environment:
+      API_BASE_URL: http://demo-gob-backend/api
+    depends_on:
+      - demo-gob-backend

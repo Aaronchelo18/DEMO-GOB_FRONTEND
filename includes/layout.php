@@ -10,7 +10,7 @@ function render_page_start(string $title, array $establishment, string $active =
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= e($title) ?></title>
-    <link rel="stylesheet" href="assets/css/app.css?v=20260720-10">
+    <link rel="stylesheet" href="assets/css/app.css?v=20260722-1">
 </head>
 <body class="sidebar-main-menu">
     <aside class="iq-sidebar" aria-label="Menu principal">
@@ -22,13 +22,13 @@ function render_page_start(string $title, array $establishment, string $active =
                 </li>
                 <li class="main-active">
                     <a class="iq-menu-parent" href="index.php">
-                        <strong class="menu-main-icon" aria-hidden="true">&#9776;</strong>
+                        <?= icon('grid', 'icon menu-grid-icon') ?>
                         <span>MENU PRINCIPAL</span>
                         <?= icon('chevron', 'icon iq-arrow-right') ?>
                     </a>
                     <ul class="iq-submenu">
                         <li class="<?= $active === 'inicio' || $active === 'infraestructura' ? 'active' : '' ?>">
-                            <a href="index.php"><?= icon('clipboard') ?><span>Categorización</span></a>
+                            <a href="index.php"><?= icon('clipboard') ?><span>Categorizaci&oacute;n</span></a>
                         </li>
                         <li>
                             <a href="#reportes-excel"><?= icon('file') ?><span>Reportes Excel</span></a>
@@ -54,7 +54,7 @@ function render_page_start(string $title, array $establishment, string $active =
                 <button class="icon-button" type="button" aria-label="Pantalla completa"><?= icon('maximize') ?></button>
                 <a class="manual-button" href="#" aria-label="Ver manual"><?= icon('manual') ?><span>VER MANUAL</span></a>
                 <div class="profile" aria-label="Usuario activo">
-                    <div class="avatar" aria-hidden="true"><?= icon('user') ?></div>
+                    <img class="avatar" src="assets/img/avatar-siscat.jpg" alt="">
                     <div>
                         <strong><?= e($establishment['user']) ?></strong>
                         <small>F. expira acceso: <?= e($establishment['expires']) ?></small>
@@ -93,11 +93,11 @@ function render_context_filters(array $establishment): void
     <?php
 }
 
-function render_upss_sidebar(array $upss, string $activeKey = 'consulta_externa'): void
+function render_upss_sidebar(array $upss, string $activeKey = 'consulta_externa', string $backHref = 'index.php', string $extraClass = ''): void
 {
     ?>
-        <aside class="upss-panel">
-            <a class="back-button" href="index.php"><?= icon('chevron') ?><span>Regresar</span></a>
+        <aside class="upss-panel <?= e($extraClass) ?>">
+            <a class="back-button" href="<?= e($backHref) ?>"><?= icon('chevron') ?><span>Regresar</span></a>
             <h2>SELECCIONAR UPSS</h2>
             <nav class="upss-list" aria-label="Lista UPSS">
                 <?php foreach ($upss as $key => $item): ?>
@@ -111,11 +111,11 @@ function render_upss_sidebar(array $upss, string $activeKey = 'consulta_externa'
     <?php
 }
 
-function render_upss_sidebar_tree(array $upss, array $consultaTree, string $selectedService, string $selectedItem): void
+function render_upss_sidebar_tree(array $upss, array $consultaTree, string $selectedService, string $selectedGroup, string $selectedItem): void
 {
     ?>
         <aside class="upss-panel upss-panel-tree">
-            <a class="back-button" href="infraestructura.php"><?= icon('chevron') ?><span>Regresar</span></a>
+            <a class="back-button" href="index.php"><?= icon('chevron') ?><span>Regresar</span></a>
             <h2>SELECCIONAR UPSS</h2>
             <nav class="upss-list tree-sidebar" aria-label="Lista UPSS">
                 <?php foreach ($upss as $key => $item): ?>
@@ -135,36 +135,31 @@ function render_upss_sidebar_tree(array $upss, array $consultaTree, string $sele
 
                         <div class="branch-content">
                             <div class="branch-inner">
-                            <?php foreach ($consultaTree as $serviceKey => $service): ?>
-                                <section class="sidebar-branch service-node <?= $serviceKey === $selectedService ? 'is-open' : '' ?>">
-                                    <button class="tree-toggle" type="button" aria-expanded="<?= $serviceKey === $selectedService ? 'true' : 'false' ?>">
-                                        <?= icon($service['icon']) ?>
-                                        <span><?= e($service['label']) ?></span>
+                                <section class="sidebar-branch services-node is-open">
+                                    <button class="tree-toggle tree-toggle-folder" type="button" aria-expanded="true">
+                                        <?= icon('layout') ?>
+                                        <span>SERVICIOS</span>
                                     </button>
 
                                     <div class="branch-content">
-                                        <div class="branch-inner">
-                                        <?php foreach ($service['groups'] as $group): ?>
-                                            <?php
-                                            $groupOpen = false;
-                                            foreach ($group['items'] as $groupItem) {
-                                                if ($groupItem['id'] === $selectedItem) {
-                                                    $groupOpen = true;
-                                                    break;
-                                                }
-                                            }
-                                            ?>
-                                            <section class="sidebar-branch group-node <?= $groupOpen ? 'is-open' : '' ?>">
-                                                <button class="tree-toggle" type="button" aria-expanded="<?= $groupOpen ? 'true' : 'false' ?>">
-                                                    <?= icon($group['icon']) ?>
-                                                    <span><?= e($group['label']) ?></span>
+                                        <div class="branch-inner service-branch-inner">
+                                        <?php foreach ($consultaTree as $serviceKey => $service): ?>
+                                            <section class="sidebar-branch service-node <?= $serviceKey === $selectedService ? 'is-open' : '' ?>">
+                                                <button class="tree-toggle" type="button" aria-expanded="<?= $serviceKey === $selectedService ? 'true' : 'false' ?>">
+                                                    <?= icon($service['icon']) ?>
+                                                    <span><?= e($service['label']) ?></span>
                                                 </button>
 
                                                 <div class="branch-content">
-                                                    <div class="branch-inner item-list">
-                                                    <?php foreach ($group['items'] as $groupItem): ?>
-                                                        <a class="<?= $groupItem['id'] === $selectedItem ? 'is-active' : '' ?>" href="consulta-externa.php?servicio=<?= e($serviceKey) ?>&item=<?= e($groupItem['id']) ?>">
-                                                            <span><?= e($groupItem['label']) ?></span>
+                                                    <div class="branch-inner detail-list">
+                                                    <?php foreach ($service['groups'] as $groupKey => $group): ?>
+                                                        <?php
+                                                        $groupItemId = $group['items'][0]['id'] ?? '';
+                                                        $isGroupActive = $serviceKey === $selectedService && $groupKey === $selectedGroup;
+                                                        ?>
+                                                        <a class="detail-link <?= $isGroupActive ? 'is-active' : '' ?>" href="consulta-externa.php?servicio=<?= e($serviceKey) ?>&grupo=<?= e($groupKey) ?>&item=<?= e($groupItemId) ?>">
+                                                            <?= icon($group['icon']) ?>
+                                                            <span><?= e($group['label']) ?></span>
                                                         </a>
                                                     <?php endforeach; ?>
                                                     </div>
@@ -174,7 +169,6 @@ function render_upss_sidebar_tree(array $upss, array $consultaTree, string $sele
                                         </div>
                                     </div>
                                 </section>
-                            <?php endforeach; ?>
                             </div>
                         </div>
                     </section>

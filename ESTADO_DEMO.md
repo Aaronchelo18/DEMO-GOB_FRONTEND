@@ -18,7 +18,31 @@ C:\DEMO-GOB_BACKEND
 
 El trabajo realizado por ahora esta en el frontend.
 
-## Como levantar
+## Como levantar con Docker
+
+Arranque recomendado:
+
+```powershell
+cd /d C:\demo-gob_frontend
+docker compose up -d --build
+```
+
+Tambien puedes ejecutar:
+
+```powershell
+C:\demo-gob_frontend\INICIAR_DOCKER.bat
+```
+
+URLs locales:
+
+```text
+Frontend: http://localhost:8080
+Backend:  http://localhost:8081/api/health
+```
+
+El frontend usa `API_BASE_URL=http://demo-gob-backend/api` dentro de Docker para comunicarse con el backend por red interna.
+
+## Como levantar sin Docker
 
 PHP 8.3 quedo instalado por winget en:
 
@@ -29,7 +53,7 @@ C:\Users\Jozef\AppData\Local\Microsoft\WinGet\Packages\PHP.PHP.8.3_Microsoft.Win
 Arranque recomendado:
 
 ```powershell
-cd /d C:\DEMO-GOB_FRONTEND
+cd /d C:\demo-gob_frontend
 .\INICIAR_FRONTEND.bat
 ```
 
@@ -50,6 +74,7 @@ http://127.0.0.1:8080/index.php
   - Reporte Cumplimiento
 - Se corrigio el icono del menu para que sea unico y no parpadee.
 - Se corrigio el texto del hover para que no aparezca/desaparezca con duplicado visual.
+- La tarjeta `INFRAESTRUCTURA` entra directo a `consulta-externa.php`; ya no existe pantalla intermedia `infraestructura.php`.
 - La pantalla `consulta-externa.php` conserva el flujo de tres columnas: UPSS izquierda, items centro, formulario derecha.
 - Debajo de `CONSULTA EXTERNA` se agrego jerarquia padre-hijo:
   - Medicina
@@ -62,7 +87,6 @@ http://127.0.0.1:8080/index.php
 
 ```text
 C:\DEMO-GOB_FRONTEND\index.php
-C:\DEMO-GOB_FRONTEND\infraestructura.php
 C:\DEMO-GOB_FRONTEND\consulta-externa.php
 C:\DEMO-GOB_FRONTEND\includes\data.php
 C:\DEMO-GOB_FRONTEND\includes\layout.php
@@ -79,9 +103,10 @@ C:\DEMO-GOB_FRONTEND\INICIAR_FRONTEND.bat
 - `index.php` responde `200`.
 - `consulta-externa.php` responde `200`.
 - Se hicieron capturas locales con Edge headless para revisar el diseño.
+- Docker Compose levanta frontend y backend juntos.
+- El frontend consume `GET /api/session`, `GET /api/catalog` y guarda con `POST /api/captures` cuando el backend esta disponible.
 
 ## Siguiente pendiente
 
 - Seguir afinando visualmente el sidebar si se requiere.
-- Conectar el frontend con `C:\DEMO-GOB_BACKEND`.
-- Convertir los datos mock de `includes\data.php` en respuestas reales del backend.
+- Conectar mas interacciones visuales del arbol a endpoints especificos si el flujo crece.

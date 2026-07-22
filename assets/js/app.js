@@ -1,7 +1,7 @@
 (function () {
     const branches = document.querySelectorAll('.sidebar-branch');
 
-    function setBranchHeight(branch, expanded) {
+    function setBranchState(branch, expanded) {
         const content = branch.querySelector(':scope > .branch-content');
         const toggle = branch.querySelector(':scope > .tree-toggle');
         if (!content || !toggle) {
@@ -16,7 +16,7 @@
                 if (branch.classList.contains('is-open')) {
                     content.style.maxHeight = 'none';
                 }
-            }, 240);
+            }, 230);
             return;
         }
 
@@ -33,27 +33,17 @@
             return;
         }
 
+        toggle.setAttribute('aria-expanded', branch.classList.contains('is-open') ? 'true' : 'false');
         content.style.maxHeight = branch.classList.contains('is-open') ? 'none' : '0px';
         toggle.addEventListener('click', function () {
-            const willOpen = !branch.classList.contains('is-open');
-            setBranchHeight(branch, willOpen);
-            window.setTimeout(function () {
-                let parent = branch.parentElement?.closest('.sidebar-branch.is-open');
-                while (parent) {
-                    const parentContent = parent.querySelector(':scope > .branch-content');
-                    if (parentContent && parentContent.style.maxHeight !== 'none') {
-                        parentContent.style.maxHeight = parentContent.scrollHeight + 'px';
-                    }
-                    parent = parent.parentElement?.closest('.sidebar-branch.is-open');
-                }
-            }, 20);
+            setBranchState(branch, !branch.classList.contains('is-open'));
         });
     });
 
-    const activeTreeItem = document.querySelector('.item-list a.is-active');
-    if (activeTreeItem) {
+    const activeTreeLink = document.querySelector('.detail-link.is-active');
+    if (activeTreeLink) {
         window.setTimeout(function () {
-            activeTreeItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            activeTreeLink.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         }, 120);
     }
 
@@ -62,14 +52,12 @@
         return;
     }
 
-    const qty = document.getElementById('quantityInput');
-    const material = document.getElementById('materialSelect');
-    const condition = document.getElementById('conditionSelect');
-    const recommendation = document.getElementById('recommendationSelect');
-    const preview = document.getElementById('observationPreview');
     const payload = document.getElementById('payloadInput');
-    const minus = document.getElementById('qtyMinus');
-    const plus = document.getElementById('qtyPlus');
+    const qty = document.getElementById('quantityInput');
+    const observation = document.getElementById('observacion');
+    const recommendation = document.getElementById('recomendacion');
+    const fileInput = document.getElementById('customFile');
+    const selectedFilesPreview = document.getElementById('selected-files-preview');
     const complianceLabels = form.querySelectorAll('.segmented label');
 
     function selectedCompliance() {
@@ -77,48 +65,44 @@
         return checked ? checked.value : 'SI';
     }
 
-    function buildObservation() {
-        const recommendationText = recommendation.value ? ` Recomendacion: ${recommendation.value}.` : '';
-        return `${qty.value} ${form.dataset.item} | Servicio: ${form.dataset.service} | Componente: ${form.dataset.group} | Detalle: ${form.dataset.detail} | Material: ${material.value} | Estado: ${condition.value} | Cumple: ${selectedCompliance()}.${recommendationText}`;
+    function clampQuantity() {
+        const numeric = Number(qty.value || 0);
+        qty.value = Math.max(0, Math.min(99, Number.isNaN(numeric) ? 0 : numeric));
     }
 
-    function sync() {
-        const observation = buildObservation();
-        preview.textContent = observation;
+    function renderSelectedFiles() {
+        if (!selectedFilesPreview || !fileInput) {
+            return;
+        }
+
+        const files = Array.from(fileInput.files || []);
+        if (files.length === 0) {
+            selectedFilesPreview.textContent = 'Sin archivos seleccionados.';
+            return;
+        }
+
+        selectedFilesPreview.textContent = '';
+        files.slice(0, 6).forEach(function (file) {
+            const entry = document.createElement('span');
+            entry.textContent = file.name;
+            selectedFilesPreview.appendChild(entry);
+        });
+    }
+
+    function syncPayload() {
+        clampQuantity();
         payload.value = JSON.stringify({
             upss: 'CONSULTA EXTERNA',
             servicio: form.dataset.service,
             componente: form.dataset.group,
             item: form.dataset.item,
             detalle: form.dataset.detail,
-            material: material.value,
-            estado: condition.value,
-            cantidad: Number(qty.value || 0),
             cumple: selectedCompliance(),
+            observacion: observation.value,
             recomendacion: recommendation.value,
-            observacion: observation
+            cantidad: Number(qty.value || 0)
         });
     }
-
-    function clampQuantity(value) {
-        const numeric = Number(value || 0);
-        return Math.max(0, Math.min(99, Number.isNaN(numeric) ? 0 : numeric));
-    }
-
-    minus.addEventListener('click', function () {
-        qty.value = clampQuantity(Number(qty.value || 0) - 1);
-        sync();
-    });
-
-    plus.addEventListener('click', function () {
-        qty.value = clampQuantity(Number(qty.value || 0) + 1);
-        sync();
-    });
-
-    [qty, material, condition, recommendation].forEach(function (input) {
-        input.addEventListener('input', sync);
-        input.addEventListener('change', sync);
-    });
 
     complianceLabels.forEach(function (label) {
         label.addEventListener('click', function () {
@@ -126,10 +110,33 @@
                 entry.classList.remove('is-active');
             });
             label.classList.add('is-active');
-            window.setTimeout(sync, 0);
+            window.setTimeout(syncPayload, 0);
         });
     });
 
-    form.addEventListener('submit', sync);
-    sync();
+    [qty, observation, recommendation].forEach(function (input) {
+        input.addEventListener('input', syncPayload);
+        input.addEventListener('change', syncPayload);
+    });
+
+    if (fileInput) {
+        fileInput.addEventListener('change', function () {
+            renderSelectedFiles();
+            syncPayload();
+        });
+    }
+
+    form.addEventListener('reset', function () {
+        window.setTimeout(function () {
+            complianceLabels.forEach(function (entry, index) {
+                entry.classList.toggle('is-active', index === 0);
+            });
+            renderSelectedFiles();
+            syncPayload();
+        }, 0);
+    });
+
+    form.addEventListener('submit', syncPayload);
+    renderSelectedFiles();
+    syncPayload();
 })();

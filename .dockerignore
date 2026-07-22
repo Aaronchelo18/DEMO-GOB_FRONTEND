@@ -1,0 +1,9 @@
+.git
+.edge-temp
+node_modules
+vendor
+*.log
+*.tmp
+preview*
+Thumbs.db
+.DS_Store

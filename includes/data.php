@@ -4,7 +4,7 @@ $establishment = [
     'network' => 'SAN MARTIN',
     'micro_network' => 'JUAN GUERRA',
     'category' => 'PRIMER NIVEL DE ATENCION - I-3 (CPA)',
-    'user' => 'JAUREGUI SAAVEDRA HERMAN',
+    'user' => 'JÁUREGUI SAAVEDRA HERMAN',
     'expires' => '2026-12-31',
 ];
 
@@ -14,7 +14,7 @@ $modules = [
         'label' => 'INFRAESTRUCTURA',
         'icon' => 'building',
         'progress' => 42,
-        'href' => 'infraestructura.php',
+        'href' => 'consulta-externa.php',
     ],
     [
         'key' => 'equipamiento',
@@ -46,15 +46,15 @@ $upss = [
         'href' => 'consulta-externa.php',
         'active' => true,
     ],
-    'hospitalizacion' => ['label' => 'HOSPITALIZACION', 'icon' => 'bed', 'href' => '#', 'active' => false],
+    'hospitalizacion' => ['label' => 'HOSPITALIZACIÓN', 'icon' => 'bed', 'href' => '#', 'active' => false],
     'emergencia' => ['label' => 'EMERGENCIA', 'icon' => 'siren', 'href' => '#', 'active' => false],
-    'centro_obstetrico' => ['label' => 'CENTRO OBSTETRICO', 'icon' => 'heart', 'href' => '#', 'active' => false],
-    'patologia_clinica' => ['label' => 'PATOLOGIA CLINICA', 'icon' => 'flask', 'href' => '#', 'active' => false],
-    'diagnostico' => ['label' => 'DIAGNOSTICO POR IMAGENES', 'icon' => 'image', 'href' => '#', 'active' => false],
+    'centro_obstetrico' => ['label' => 'CENTRO OBSTÉTRICO', 'icon' => 'heart', 'href' => '#', 'active' => false],
+    'patologia_clinica' => ['label' => 'PATOLOGÍA CLÍNICA', 'icon' => 'flask', 'href' => '#', 'active' => false],
+    'diagnostico' => ['label' => 'DIAGNÓSTICO POR IMÁGENES', 'icon' => 'image', 'href' => '#', 'active' => false],
     'farmacia' => ['label' => 'FARMACIA', 'icon' => 'pill', 'href' => '#', 'active' => false],
-    'esterilizacion' => ['label' => 'CENTRAL DE ESTERILIZACION', 'icon' => 'shield', 'href' => '#', 'active' => false],
-    'rehabilitacion' => ['label' => 'MEDICINA DE REHABILITACION', 'icon' => 'activity', 'href' => '#', 'active' => false],
-    'nutricion' => ['label' => 'NUTRICION Y DIETETICA', 'icon' => 'leaf', 'href' => '#', 'active' => false],
+    'esterilizacion' => ['label' => 'CENTRAL DE ESTERILIZACIÓN', 'icon' => 'shield', 'href' => '#', 'active' => false],
+    'rehabilitacion' => ['label' => 'MEDICINA DE REHABILITACIÓN', 'icon' => 'activity', 'href' => '#', 'active' => false],
+    'nutricion' => ['label' => 'NUTRICIÓN Y DIETÉTICA', 'icon' => 'leaf', 'href' => '#', 'active' => false],
 ];
 
 $consultaTree = [
@@ -115,24 +115,24 @@ $consultaTree = [
                     ],
                 ],
             ],
-            'mobiliario' => [
-                'label' => 'Mobiliario',
-                'icon' => 'layout',
+            'rrhh' => [
+                'label' => 'Recursos humanos',
+                'icon' => 'users',
                 'items' => [
                     [
-                        'id' => 'camilla-examen',
-                        'label' => 'Camilla de examen',
+                        'id' => 'medico-general-consulta',
+                        'label' => 'Medico general',
                         'required' => 'Obligatorio',
-                        'detail' => 'Evaluacion del paciente',
-                        'materials' => ['Metalica', 'Madera', 'Acero inoxidable'],
+                        'detail' => 'Atencion medica en consulta externa',
+                        'materials' => ['Nombrado', 'CAS', 'Servicio tercero'],
                         'default_qty' => 1,
                     ],
                     [
-                        'id' => 'escritorio-clinico',
-                        'label' => 'Escritorio de atencion',
+                        'id' => 'tecnico-consulta-externa',
+                        'label' => 'Tecnico de enfermeria',
                         'required' => 'Opcional',
-                        'detail' => 'Registro de atencion',
-                        'materials' => ['Melamina', 'Metalico', 'Madera'],
+                        'detail' => 'Apoyo al servicio de consulta externa',
+                        'materials' => ['Nombrado', 'CAS', 'Tercero'],
                         'default_qty' => 1,
                     ],
                 ],
@@ -150,7 +150,7 @@ $consultaTree = [
                 'items' => [
                     [
                         'id' => 'topico-lavamanos',
-                        'label' => 'Topico con lavamanos',
+                        'label' => 'Tópico para procedimientos',
                         'required' => 'Obligatorio',
                         'detail' => 'Procedimientos menores',
                         'materials' => ['Lavamanos operativo', 'Lavadero quirurgico', 'Dispensador de jabon'],
@@ -271,6 +271,240 @@ $consultaTree = [
     ],
 ];
 
+function siscat_api_base_url(): string
+{
+    $baseUrl = getenv('API_BASE_URL') ?: 'http://127.0.0.1:8081/api';
+    return rtrim($baseUrl, '/');
+}
+
+function siscat_api_get(string $path): ?array
+{
+    $url = siscat_api_base_url() . '/' . ltrim($path, '/');
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'GET',
+            'timeout' => 1.5,
+            'ignore_errors' => true,
+            'header' => "Accept: application/json\r\n",
+        ],
+    ]);
+
+    $response = @file_get_contents($url, false, $context);
+    if ($response === false) {
+        return null;
+    }
+
+    $decoded = json_decode($response, true);
+    return is_array($decoded) ? $decoded : null;
+}
+
+function siscat_api_post_json(string $path, array $payload): ?array
+{
+    $url = siscat_api_base_url() . '/' . ltrim($path, '/');
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'POST',
+            'timeout' => 3,
+            'ignore_errors' => true,
+            'header' => "Content-Type: application/json\r\nAccept: application/json\r\n",
+            'content' => json_encode($payload, JSON_UNESCAPED_SLASHES),
+        ],
+    ]);
+
+    $response = @file_get_contents($url, false, $context);
+    if ($response === false) {
+        return null;
+    }
+
+    $decoded = json_decode($response, true);
+    return is_array($decoded) ? $decoded : null;
+}
+
+function normalize_api_establishment(array $fallback, ?array $catalog, ?array $session): array
+{
+    $apiEstablishment = $catalog['establishment'] ?? $session['establishment'] ?? [];
+    $apiUser = $catalog['user'] ?? $session['user'] ?? [];
+
+    return [
+        'name' => $apiEstablishment['name'] ?? $fallback['name'],
+        'network' => $apiEstablishment['network'] ?? $fallback['network'],
+        'micro_network' => $apiEstablishment['micro_network'] ?? $fallback['micro_network'],
+        'category' => $apiEstablishment['category'] ?? $fallback['category'],
+        'user' => $apiUser['name'] ?? $fallback['user'],
+        'expires' => $apiUser['expires'] ?? $fallback['expires'],
+    ];
+}
+
+function normalize_api_modules(array $apiModules, array $fallback): array
+{
+    $fallbackByKey = [];
+    foreach ($fallback as $module) {
+        $fallbackByKey[$module['key']] = $module;
+    }
+
+    $iconByKey = [
+        'infraestructura' => 'building',
+        'equipamiento' => 'briefcase',
+        'recursos_humanos' => 'users',
+        'organizacion' => 'network',
+    ];
+
+    $normalized = [];
+    foreach ($apiModules as $module) {
+        $key = $module['key'] ?? '';
+        if ($key === '') {
+            continue;
+        }
+
+        $current = $fallbackByKey[$key] ?? [];
+        $normalized[] = [
+            'key' => $key,
+            'label' => $module['label'] ?? $current['label'] ?? strtoupper($key),
+            'icon' => $current['icon'] ?? $iconByKey[$key] ?? 'clipboard',
+            'progress' => $current['progress'] ?? 0,
+            'href' => $module['href'] ?? $current['href'] ?? '#',
+        ];
+    }
+
+    return $normalized ?: $fallback;
+}
+
+function normalize_api_upss(array $apiUpss, array $fallback): array
+{
+    $iconByKey = [
+        'consulta_externa' => 'clipboard',
+        'hospitalizacion' => 'bed',
+        'emergencia' => 'siren',
+        'centro_obstetrico' => 'heart',
+        'patologia_clinica' => 'flask',
+        'diagnostico' => 'image',
+        'farmacia' => 'pill',
+        'esterilizacion' => 'shield',
+        'rehabilitacion' => 'activity',
+        'nutricion' => 'leaf',
+    ];
+
+    $normalized = [];
+    foreach ($apiUpss as $item) {
+        $key = $item['key'] ?? '';
+        if ($key === '') {
+            continue;
+        }
+
+        $current = $fallback[$key] ?? [];
+        $normalized[$key] = [
+            'label' => $item['label'] ?? $current['label'] ?? strtoupper($key),
+            'icon' => $current['icon'] ?? $iconByKey[$key] ?? 'clipboard',
+            'href' => $current['href'] ?? ($key === 'consulta_externa' ? 'consulta-externa.php' : '#'),
+            'active' => $key === 'consulta_externa',
+        ];
+    }
+
+    return $normalized ?: $fallback;
+}
+
+function fallback_item_materials(array $tree, string $itemId): array
+{
+    foreach ($tree as $service) {
+        foreach ($service['groups'] as $group) {
+            foreach ($group['items'] as $item) {
+                if (($item['id'] ?? '') === $itemId) {
+                    return $item['materials'] ?? [];
+                }
+            }
+        }
+    }
+
+    return [];
+}
+
+function normalize_api_services(array $apiServices, array $fallback): array
+{
+    $serviceIconByKey = [
+        'medicina' => 'stethoscope',
+        'enfermeria' => 'activity',
+        'obstetricia' => 'heart',
+    ];
+    $groupIconByKey = [
+        'infraestructura' => 'building',
+        'equipamiento' => 'briefcase',
+        'rrhh' => 'users',
+    ];
+
+    $normalized = [];
+    foreach ($apiServices as $serviceKey => $service) {
+        if (!is_array($service)) {
+            continue;
+        }
+
+        $fallbackService = $fallback[$serviceKey] ?? [];
+        $normalized[$serviceKey] = [
+            'label' => $service['label'] ?? $fallbackService['label'] ?? ucfirst((string) $serviceKey),
+            'icon' => $fallbackService['icon'] ?? $serviceIconByKey[$serviceKey] ?? 'clipboard',
+            'description' => $service['description'] ?? $fallbackService['description'] ?? '',
+            'groups' => [],
+        ];
+
+        foreach (($service['groups'] ?? []) as $groupKey => $group) {
+            if (!is_array($group)) {
+                continue;
+            }
+
+            $fallbackGroup = $fallbackService['groups'][$groupKey] ?? [];
+            $items = [];
+            foreach (($group['items'] ?? []) as $item) {
+                if (!is_array($item) || empty($item['id'])) {
+                    continue;
+                }
+
+                $items[] = [
+                    'id' => $item['id'],
+                    'label' => $item['label'] ?? '',
+                    'required' => $item['required'] ?? 'Obligatorio',
+                    'detail' => $item['detail'] ?? '',
+                    'materials' => fallback_item_materials($fallback, $item['id']),
+                    'default_qty' => $item['default_qty'] ?? 1,
+                ];
+            }
+
+            if ($items === []) {
+                $items = $fallbackGroup['items'] ?? [];
+            }
+
+            $normalized[$serviceKey]['groups'][$groupKey] = [
+                'label' => $group['label'] ?? $fallbackGroup['label'] ?? ucfirst((string) $groupKey),
+                'icon' => $fallbackGroup['icon'] ?? $groupIconByKey[$groupKey] ?? 'clipboard',
+                'items' => $items,
+            ];
+        }
+    }
+
+    return $normalized ?: $fallback;
+}
+
+function apply_backend_catalog(array $fallbackEstablishment, array $fallbackModules, array $fallbackUpss, array $fallbackTree): array
+{
+    $session = siscat_api_get('session');
+    $catalog = siscat_api_get('catalog');
+
+    if (!is_array($session) && !is_array($catalog)) {
+        return [$fallbackEstablishment, $fallbackModules, $fallbackUpss, $fallbackTree];
+    }
+
+    $sourceModules = $session['modules'] ?? $catalog['modules'] ?? [];
+    $sourceUpss = $catalog['upss'] ?? [];
+    $sourceServices = $catalog['services'] ?? [];
+
+    return [
+        normalize_api_establishment($fallbackEstablishment, $catalog, $session),
+        is_array($sourceModules) ? normalize_api_modules($sourceModules, $fallbackModules) : $fallbackModules,
+        is_array($sourceUpss) ? normalize_api_upss($sourceUpss, $fallbackUpss) : $fallbackUpss,
+        is_array($sourceServices) ? normalize_api_services($sourceServices, $fallbackTree) : $fallbackTree,
+    ];
+}
+
+[$establishment, $modules, $upss, $consultaTree] = apply_backend_catalog($establishment, $modules, $upss, $consultaTree);
+
 function first_item_id(array $tree, string $serviceKey = 'medicina'): string
 {
     $service = $tree[$serviceKey] ?? reset($tree);
@@ -282,10 +516,23 @@ function first_item_id(array $tree, string $serviceKey = 'medicina'): string
     return '';
 }
 
-function find_capture_item(array $tree, string $serviceKey, string $itemId): array
+function find_capture_selection(array $tree, string $serviceKey, ?string $groupKey, ?string $itemId): array
 {
     if (!isset($tree[$serviceKey])) {
         $serviceKey = array_key_first($tree);
+    }
+
+    if ($groupKey !== null && isset($tree[$serviceKey]['groups'][$groupKey])) {
+        $group = $tree[$serviceKey]['groups'][$groupKey];
+        foreach ($group['items'] as $item) {
+            if ($item['id'] === $itemId) {
+                return [$serviceKey, $tree[$serviceKey], $groupKey, $group, $item];
+            }
+        }
+
+        if (!empty($group['items'][0])) {
+            return [$serviceKey, $tree[$serviceKey], $groupKey, $group, $group['items'][0]];
+        }
     }
 
     foreach ($tree[$serviceKey]['groups'] as $groupKey => $group) {
@@ -296,8 +543,14 @@ function find_capture_item(array $tree, string $serviceKey, string $itemId): arr
         }
     }
 
-    $fallbackId = first_item_id($tree, $serviceKey);
-    return find_capture_item($tree, $serviceKey, $fallbackId);
+    $fallbackGroupKey = array_key_first($tree[$serviceKey]['groups']);
+    $fallbackGroup = $tree[$serviceKey]['groups'][$fallbackGroupKey];
+    return [$serviceKey, $tree[$serviceKey], $fallbackGroupKey, $fallbackGroup, $fallbackGroup['items'][0]];
+}
+
+function find_capture_item(array $tree, string $serviceKey, string $itemId): array
+{
+    return find_capture_selection($tree, $serviceKey, null, $itemId);
 }
 
 function count_service_items(array $service): int
