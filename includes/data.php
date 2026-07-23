@@ -1,11 +1,37 @@
 <?php
 $establishment = [
+    'id' => 'cs-juan-guerra',
     'name' => 'CENTRO DE SALUD JUAN GUERRA (I-3)',
     'network' => 'SAN MARTIN',
     'micro_network' => 'JUAN GUERRA',
     'category' => 'PRIMER NIVEL DE ATENCION - I-3 (CPA)',
     'user' => 'JÁUREGUI SAAVEDRA HERMAN',
     'expires' => '2026-12-31',
+];
+
+$categories = [
+    ['code' => 'I-1-CPA', 'label' => 'PRIMER NIVEL DE ATENCION - I-1 (CPA)'],
+    ['code' => 'I-2-CPA', 'label' => 'PRIMER NIVEL DE ATENCION - I-2 (CPA)'],
+    ['code' => 'I-3-CPA', 'label' => 'PRIMER NIVEL DE ATENCION - I-3 (CPA)'],
+    ['code' => 'I-4-CPA', 'label' => 'PRIMER NIVEL DE ATENCION - I-4 (CPA)'],
+    ['code' => 'II-1-AG', 'label' => 'SEGUNDO NIVEL - II-1 (AG)'],
+    ['code' => 'II-2-AG', 'label' => 'SEGUNDO NIVEL - II-2 (AG)'],
+    ['code' => 'II-E-AE', 'label' => 'SEGUNDO NIVEL - II-E (AE)'],
+    ['code' => 'III-E-AE', 'label' => 'TERCER NIVEL - III-E (AE)'],
+    ['code' => 'III-2-AE', 'label' => 'TERCER NIVEL - III-2 (AE)'],
+];
+
+$establishments = [
+    $establishment,
+    ['id' => '7-junio-ahuihua', 'name' => '7 DE JUNIO-AHUIHUA (I-1)', 'network' => 'HUALLAGA', 'micro_network' => 'SAPOSOA', 'health_network' => 'SALUD HUALLAGA CENTRAL', 'category' => 'PRIMER NIVEL DE ATENCION - I-1 (CPA)'],
+    ['id' => 'achinamiza', 'name' => 'ACHINAMIZA (I-1)', 'network' => 'SAN MARTIN', 'micro_network' => 'CHAZUTA', 'health_network' => 'SALUD SAN MARTIN', 'category' => 'PRIMER NIVEL DE ATENCION - I-1 (CPA)'],
+    ['id' => 'agua-azul', 'name' => 'AGUA AZUL (I-1)', 'network' => 'HUALLAGA', 'micro_network' => 'SAPOSOA', 'health_network' => 'SALUD HUALLAGA CENTRAL', 'category' => 'PRIMER NIVEL DE ATENCION - I-1 (CPA)'],
+    ['id' => 'agua-blanca', 'name' => 'AGUA BLANCA (I-2)', 'network' => 'EL DORADO', 'micro_network' => 'AGUA BLANCA', 'health_network' => 'SALUD SAN MARTIN', 'category' => 'PRIMER NIVEL DE ATENCION - I-2 (CPA)'],
+    ['id' => 'aguano-muyuna', 'name' => 'AGUANO MUYUNA (I-1)', 'network' => 'SAN MARTIN', 'micro_network' => 'CHAZUTA', 'health_network' => 'SALUD SAN MARTIN', 'category' => 'PRIMER NIVEL DE ATENCION - I-1 (CPA)'],
+    ['id' => 'aguas-claras', 'name' => 'AGUAS CLARAS (I-2)', 'network' => 'RIOJA', 'micro_network' => 'NARANJOS', 'health_network' => 'SALUD ALTO MAYO', 'category' => 'PRIMER NIVEL DE ATENCION - I-2 (CPA)'],
+    ['id' => 'alfonso-ugarte-lamas', 'name' => 'ALFONSO UGARTE (I-1)', 'network' => 'LAMAS', 'micro_network' => 'CAYNARACHI', 'health_network' => 'SALUD SAN MARTIN', 'category' => 'PRIMER NIVEL DE ATENCION - I-1 (CPA)'],
+    ['id' => 'alfonso-ugarte-picota', 'name' => 'ALFONSO UGARTE (I-1)', 'network' => 'PICOTA', 'micro_network' => 'LEONCIO PRADO', 'health_network' => 'SALUD SAN MARTIN', 'category' => 'PRIMER NIVEL DE ATENCION - I-1 (CPA)'],
+    ['id' => 'alianza', 'name' => 'ALIANZA (I-2)', 'network' => 'LAMAS', 'micro_network' => 'CAYNARACHI', 'health_network' => 'SALUD SAN MARTIN', 'category' => 'PRIMER NIVEL DE ATENCION - I-2 (CPA)'],
 ];
 
 $modules = [
@@ -277,6 +303,17 @@ function siscat_api_base_url(): string
     return rtrim($baseUrl, '/');
 }
 
+function siscat_public_api_base_url(): string
+{
+    $baseUrl = getenv('PUBLIC_API_BASE_URL') ?: 'http://localhost:8081/api';
+    return rtrim($baseUrl, '/');
+}
+
+function siscat_public_api_url(string $path): string
+{
+    return siscat_public_api_base_url() . '/' . ltrim($path, '/');
+}
+
 function siscat_api_get(string $path): ?array
 {
     $url = siscat_api_base_url() . '/' . ltrim($path, '/');
@@ -326,13 +363,63 @@ function normalize_api_establishment(array $fallback, ?array $catalog, ?array $s
     $apiUser = $catalog['user'] ?? $session['user'] ?? [];
 
     return [
+        'id' => $apiEstablishment['id'] ?? $fallback['id'] ?? 'cs-juan-guerra',
         'name' => $apiEstablishment['name'] ?? $fallback['name'],
         'network' => $apiEstablishment['network'] ?? $fallback['network'],
         'micro_network' => $apiEstablishment['micro_network'] ?? $fallback['micro_network'],
+        'health_network' => $apiEstablishment['health_network'] ?? $fallback['health_network'] ?? '',
         'category' => $apiEstablishment['category'] ?? $fallback['category'],
         'user' => $apiUser['name'] ?? $fallback['user'],
         'expires' => $apiUser['expires'] ?? $fallback['expires'],
     ];
+}
+
+function normalize_api_establishments(array $fallback, ?array $catalog, ?array $session): array
+{
+    $source = $catalog['establishments'] ?? $session['establishments'] ?? [];
+    if (!is_array($source) || $source === []) {
+        return $fallback;
+    }
+
+    $normalized = [];
+    foreach ($source as $item) {
+        if (!is_array($item) || empty($item['id']) || empty($item['name'])) {
+            continue;
+        }
+
+        $normalized[] = [
+            'id' => $item['id'],
+            'name' => $item['name'],
+            'network' => $item['network'] ?? '',
+            'micro_network' => $item['micro_network'] ?? '',
+            'health_network' => $item['health_network'] ?? '',
+            'category' => $item['category'] ?? '',
+        ];
+    }
+
+    return $normalized ?: $fallback;
+}
+
+function normalize_api_categories(array $fallback, ?array $catalog, ?array $session): array
+{
+    $source = $catalog['categories'] ?? $session['categories'] ?? [];
+    if (!is_array($source) || $source === []) {
+        return $fallback;
+    }
+
+    $normalized = [];
+    foreach ($source as $item) {
+        if (!is_array($item) || empty($item['label'])) {
+            continue;
+        }
+
+        $normalized[] = [
+            'code' => $item['code'] ?? $item['label'],
+            'label' => $item['label'],
+        ];
+    }
+
+    return $normalized ?: $fallback;
 }
 
 function normalize_api_modules(array $apiModules, array $fallback): array
@@ -482,13 +569,13 @@ function normalize_api_services(array $apiServices, array $fallback): array
     return $normalized ?: $fallback;
 }
 
-function apply_backend_catalog(array $fallbackEstablishment, array $fallbackModules, array $fallbackUpss, array $fallbackTree): array
+function apply_backend_catalog(array $fallbackEstablishment, array $fallbackEstablishments, array $fallbackCategories, array $fallbackModules, array $fallbackUpss, array $fallbackTree): array
 {
     $session = siscat_api_get('session');
     $catalog = siscat_api_get('catalog');
 
     if (!is_array($session) && !is_array($catalog)) {
-        return [$fallbackEstablishment, $fallbackModules, $fallbackUpss, $fallbackTree];
+        return [$fallbackEstablishment, $fallbackEstablishments, $fallbackCategories, $fallbackModules, $fallbackUpss, $fallbackTree];
     }
 
     $sourceModules = $session['modules'] ?? $catalog['modules'] ?? [];
@@ -497,13 +584,15 @@ function apply_backend_catalog(array $fallbackEstablishment, array $fallbackModu
 
     return [
         normalize_api_establishment($fallbackEstablishment, $catalog, $session),
+        normalize_api_establishments($fallbackEstablishments, $catalog, $session),
+        normalize_api_categories($fallbackCategories, $catalog, $session),
         is_array($sourceModules) ? normalize_api_modules($sourceModules, $fallbackModules) : $fallbackModules,
         is_array($sourceUpss) ? normalize_api_upss($sourceUpss, $fallbackUpss) : $fallbackUpss,
         is_array($sourceServices) ? normalize_api_services($sourceServices, $fallbackTree) : $fallbackTree,
     ];
 }
 
-[$establishment, $modules, $upss, $consultaTree] = apply_backend_catalog($establishment, $modules, $upss, $consultaTree);
+[$establishment, $establishments, $categories, $modules, $upss, $consultaTree] = apply_backend_catalog($establishment, $establishments, $categories, $modules, $upss, $consultaTree);
 
 function first_item_id(array $tree, string $serviceKey = 'medicina'): string
 {

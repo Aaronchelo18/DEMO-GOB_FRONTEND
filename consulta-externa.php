@@ -6,29 +6,14 @@ $serviceParam = $_GET['servicio'] ?? 'medicina';
 $groupParam = $_GET['grupo'] ?? null;
 $itemParam = $_GET['item'] ?? null;
 [$serviceKey, $service, $groupKey, $group, $item] = find_capture_selection($consultaTree, $serviceParam, $groupParam, $itemParam);
+$formMode = $groupKey === 'equipamiento' ? 'equipment' : ($groupKey === 'rrhh' ? 'staff' : 'compliance');
+$itemOptions = array_values(array_filter($item['materials'] ?? []));
 
-$saved = false;
-$saveError = null;
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $capturePayload = [
-        'upss' => 'CONSULTA EXTERNA',
-        'servicio' => $_POST['servicio'] ?? $service['label'],
-        'grupo' => $_POST['componente'] ?? $group['label'],
-        'item_id' => $item['id'],
-        'item' => $_POST['detalle'] ?? $item['label'],
-        'detalle' => $item['detail'],
-        'cumple' => $_POST['cumple'] ?? 'SI',
-        'cantidad' => max(0, min(99, (int) ($_POST['cantidad'] ?? 0))),
-        'observacion' => trim((string) ($_POST['observacion'] ?? '')),
-        'recomendacion' => trim((string) ($_POST['recomendacion'] ?? '')),
-    ];
-
-    $apiResponse = siscat_api_post_json('captures', $capturePayload);
-    $saved = isset($apiResponse['capture']);
-
-    if (!$saved) {
-        $saveError = 'No se pudo guardar en el backend. Verifica que Docker este levantado.';
+function render_quantity_options(int $selected = 0, int $max = 99): void
+{
+    for ($quantity = 0; $quantity <= $max; $quantity++) {
+        $isSelected = $quantity === $selected ? ' selected' : '';
+        echo '<option value="' . $quantity . '"' . $isSelected . '>' . $quantity . '</option>';
     }
 }
 
@@ -36,27 +21,6 @@ $categoryTitle = 'INFRAESTRUCTURAAvance de Cumplimiento--- ' . $establishment['c
 
 render_page_start('SISCAT Demo - Consulta Externa', $establishment, 'infraestructura');
 ?>
-
-        <?php if ($saved): ?>
-            <section class="demo-alert">
-                <?= icon('clipboard') ?>
-                <div>
-                    <strong>Registro demo guardado.</strong>
-                    <span>La informacion se guardo en el backend SISCAT.</span>
-                </div>
-            </section>
-        <?php endif; ?>
-
-        <?php if ($saveError !== null): ?>
-            <section class="demo-alert demo-alert-error">
-                <?= icon('clipboard') ?>
-                <div>
-                    <strong>No se completo el guardado.</strong>
-                    <span><?= e($saveError) ?></span>
-                </div>
-            </section>
-        <?php endif; ?>
-
         <section class="workspace original-flow" aria-label="Consulta externa">
             <?php render_upss_sidebar_tree($upss, $consultaTree, $serviceKey, $groupKey, $item['id']); ?>
 
@@ -97,19 +61,28 @@ render_page_start('SISCAT Demo - Consulta Externa', $establishment, 'infraestruc
                 </div>
 
                 <form class="smart-form original-form" id="captureForm" method="post" enctype="multipart/form-data"
+                    action="<?= e(siscat_public_api_url('captures')) ?>"
+                    data-api-url="<?= e(siscat_public_api_url('captures')) ?>"
+                    data-api-base="<?= e(siscat_public_api_base_url()) ?>"
                     data-service="<?= e($service['label']) ?>"
                     data-group="<?= e($group['label']) ?>"
+                    data-item-id="<?= e($item['id']) ?>"
                     data-item="<?= e($item['label']) ?>"
                     data-detail="<?= e($item['detail']) ?>">
+                    <input type="hidden" name="upss" value="CONSULTA EXTERNA">
                     <input type="hidden" name="servicio" value="<?= e($service['label']) ?>">
                     <input type="hidden" name="componente" value="<?= e($group['label']) ?>">
-                    <input type="hidden" name="detalle" value="<?= e($item['label']) ?>">
+                    <input type="hidden" name="grupo" value="<?= e($group['label']) ?>">
+                    <input type="hidden" name="tipo_registro" value="<?= e($formMode) ?>">
+                    <input type="hidden" name="item_id" value="<?= e($item['id']) ?>">
+                    <input type="hidden" name="item" value="<?= e($item['label']) ?>">
+                    <input type="hidden" name="detalle" value="<?= e($item['detail']) ?>">
                     <input type="hidden" name="payload" id="payloadInput" value="">
 
                     <div class="form-row-inline">
-                        <label>CUMPLE</label>
+                        <label><?= $formMode === 'equipment' ? 'TIENE EQUIPO' : ($formMode === 'staff' ? 'CUENTA CON PERSONAL' : 'CUMPLE') ?></label>
                         <div class="form-control-slot">
-                            <div class="segmented original-segmented" role="group" aria-label="Cumple">
+                            <div class="segmented original-segmented" role="group" aria-label="<?= $formMode === 'equipment' ? 'Tiene equipo' : ($formMode === 'staff' ? 'Cuenta con personal' : 'Cumple') ?>">
                             <label class="is-active"><input type="radio" name="cumple" value="SI" checked><span>SI</span></label>
                             <label><input type="radio" name="cumple" value="NO"><span>NO</span></label>
                             <label><input type="radio" name="cumple" value="NO APLICA"><span>NO APLICA</span></label>
@@ -117,46 +90,117 @@ render_page_start('SISCAT Demo - Consulta Externa', $establishment, 'infraestruc
                         </div>
                     </div>
 
+                    <?php if ($formMode === 'equipment'): ?>
+                        <div class="form-row-inline">
+                            <label for="modelSelect">TIPO / MODELO</label>
+                            <div class="form-control-slot stacked-control">
+                                <select id="modelSelect" name="modelo">
+                                    <option value="">Seleccionar tipo o modelo</option>
+                                    <?php foreach ($itemOptions as $option): ?>
+                                        <option value="<?= e($option) ?>"><?= e($option) ?></option>
+                                    <?php endforeach; ?>
+                                    <option value="OTRO">Otro</option>
+                                </select>
+                                <input id="modelOtherInput" class="optional-input" name="modelo_otro" type="text" placeholder="Especificar otro modelo">
+                            </div>
+                        </div>
+
+                        <div class="form-row-inline">
+                            <label>CANTIDADES</label>
+                            <div class="form-control-slot inventory-grid">
+                                <label>
+                                    <span>Existente</span>
+                                    <select id="quantityInput" class="quantity-select" name="cantidad_existente" data-number-field><?php render_quantity_options(); ?></select>
+                                </label>
+                                <label>
+                                    <span>Operativa</span>
+                                    <select class="quantity-select" name="cantidad_operativa" data-number-field><?php render_quantity_options(); ?></select>
+                                </label>
+                                <label>
+                                    <span>Inoperativa</span>
+                                    <select id="brokenQuantityInput" class="quantity-select" name="cantidad_inoperativa" data-number-field><?php render_quantity_options(); ?></select>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="form-row-inline">
+                            <label for="conditionSelect">ESTADO</label>
+                            <div class="form-control-slot">
+                                <select id="conditionSelect" name="estado">
+                                    <option>BUEN ESTADO</option>
+                                    <option>REGULAR</option>
+                                    <option>MAL ESTADO</option>
+                                    <option>INOPERATIVO</option>
+                                </select>
+                                <small class="field-help">La cantidad inoperativa se usa como necesidad inicial para presupuesto.</small>
+                                <div class="computed-need" id="budgetNeed">Necesidad estimada: 0 equipo(s)</div>
+                            </div>
+                        </div>
+                    <?php elseif ($formMode === 'staff'): ?>
+                        <div class="form-row-inline">
+                            <label for="staffConditionSelect">CONDICION</label>
+                            <div class="form-control-slot">
+                                <select id="staffConditionSelect" name="condicion_laboral">
+                                    <option value="">Seleccionar condicion</option>
+                                    <?php foreach ($itemOptions as $option): ?>
+                                        <option value="<?= e($option) ?>"><?= e($option) ?></option>
+                                    <?php endforeach; ?>
+                                    <option>Otro</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row-inline">
+                            <label for="quantityInput">CANTIDAD</label>
+                            <div class="form-control-slot quantity-slot">
+                                <select id="quantityInput" class="quantity-select" name="cantidad" data-number-field><?php render_quantity_options(); ?></select>
+                            </div>
+                        </div>
+                    <?php else: ?>
+                        <div class="form-row-inline">
+                            <label for="quantityInput">CANTIDAD</label>
+                            <div class="form-control-slot quantity-slot">
+                                <select id="quantityInput" class="quantity-select" name="cantidad" data-number-field><?php render_quantity_options(); ?></select>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+
                     <div class="form-row-inline">
                         <label for="observacion">OBSERVACION</label>
                         <div class="form-control-slot">
-                            <textarea class="compact-textarea" name="observacion" id="observacion" rows="3"></textarea>
-                        </div>
-                    </div>
-
-                    <div class="form-row-inline">
-                        <label for="recomendacion">RECOMENDACIONES</label>
-                        <div class="form-control-slot">
-                            <textarea class="compact-textarea" name="recomendacion" id="recomendacion" rows="3"></textarea>
-                        </div>
-                    </div>
-
-                    <div class="form-row-inline">
-                        <label for="quantityInput">CANTIDAD</label>
-                        <div class="form-control-slot quantity-slot">
-                            <input id="quantityInput" name="cantidad" type="number" min="0" max="99" value="0">
+                            <textarea class="compact-textarea" name="observacion" id="observacion" rows="3" placeholder="Texto opcional"></textarea>
                         </div>
                     </div>
 
                     <div class="upload-block">
                         <input class="custom-file-upload" type="file" name="file[]" id="customFile" multiple accept=".pdf,image/*">
-                        <small>Maximo 1 PDF y 5 imagenes.</small>
+                        <label class="file-picker-button" for="customFile">
+                            <span class="file-picker-line">
+                                <span class="file-picker-icon"><?= icon('paperclip') ?></span>
+                                <span class="file-picker-text">Elegir archivos</span>
+                            </span>
+                        </label>
+                        <span class="file-picker-summary" id="file-picker-summary">Sin archivos seleccionados</span>
                     </div>
 
                     <div class="archivo-panel selected-files-panel">
                         <div class="archivo-panel-head">
                             <strong>Archivos por enviar</strong>
-                            <span>Vista previa antes de guardar</span>
+                            <span id="selected-files-count">0 archivos</span>
                         </div>
-                        <div id="selected-files-preview" class="selected-files-preview">Sin archivos seleccionados.</div>
+                        <div id="selected-files-preview" class="selected-files-preview is-empty" aria-live="polite">
+                            <div class="file-empty-state">Sin archivos seleccionados.</div>
+                        </div>
                     </div>
 
                     <div class="archivo-panel">
                         <div class="archivo-panel-head">
                             <strong>Archivos cargados</strong>
-                            <span>Fecha, estado y accion</span>
+                            <span id="uploaded-files-count">0 registros</span>
                         </div>
-                        <div class="empty-table">Sin archivos cargados.</div>
+                        <div id="uploaded-files-list" class="uploaded-files-table" aria-live="polite">
+                            <div class="file-empty-state">Sin archivos cargados.</div>
+                        </div>
                     </div>
 
                     <div class="form-actions">
@@ -167,5 +211,5 @@ render_page_start('SISCAT Demo - Consulta Externa', $establishment, 'infraestruc
             </aside>
         </section>
 
-        <script src="assets/js/app.js?v=20260721-6"></script>
+        <script src="assets/js/app.js?v=20260723-7"></script>
 <?php render_footer(); ?>

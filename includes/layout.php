@@ -10,7 +10,7 @@ function render_page_start(string $title, array $establishment, string $active =
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= e($title) ?></title>
-    <link rel="stylesheet" href="assets/css/app.css?v=20260722-1">
+    <link rel="stylesheet" href="assets/css/app.css?v=20260723-6">
 </head>
 <body class="sidebar-main-menu">
     <aside class="iq-sidebar" aria-label="Menu principal">

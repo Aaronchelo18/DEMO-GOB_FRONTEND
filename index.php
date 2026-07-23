@@ -9,24 +9,28 @@ render_page_start('SISCAT Demo - Inicio', $establishment, 'inicio');
             <section class="filters home-filters" aria-label="Contexto del establecimiento">
                 <label>
                     <span>ESTABLECIMIENTO:</span>
-                    <select>
+                    <select id="establishment-select">
                         <option>Seleccionar establecimientos</option>
-                        <option><?= e($establishment['name']) ?></option>
+                        <?php foreach ($establishments as $item): ?>
+                            <option value="<?= e($item['id']) ?>"><?= e($item['name']) ?></option>
+                        <?php endforeach; ?>
                     </select>
                 </label>
                 <label>
                     <span>RED:</span>
-                    <input value="" readonly>
+                    <input id="network-input" value="" readonly>
                 </label>
                 <label>
                     <span>MICRORED:</span>
-                    <input value="" readonly>
+                    <input id="micro-network-input" value="" readonly>
                 </label>
                 <label>
                     <span>CATEGORIA:</span>
-                    <select>
+                    <select id="category-select">
                         <option>Seleccionar categoria</option>
-                        <option><?= e($establishment['category']) ?></option>
+                        <?php foreach ($categories as $category): ?>
+                            <option value="<?= e($category['label']) ?>"><?= e($category['label']) ?></option>
+                        <?php endforeach; ?>
                     </select>
                 </label>
             </section>
@@ -57,5 +61,25 @@ render_page_start('SISCAT Demo - Inicio', $establishment, 'inicio');
                 </div>
             </section>
         </section>
+
+        <script>
+            (() => {
+                const establishments = <?= json_encode($establishments, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+                const select = document.getElementById('establishment-select');
+                const networkInput = document.getElementById('network-input');
+                const microNetworkInput = document.getElementById('micro-network-input');
+                const categorySelect = document.getElementById('category-select');
+                const byId = new Map(establishments.map((item) => [item.id, item]));
+
+                const syncEstablishment = () => {
+                    const selected = byId.get(select.value);
+                    networkInput.value = selected?.network ?? '';
+                    microNetworkInput.value = selected?.micro_network ?? '';
+                    categorySelect.value = selected?.category ?? '';
+                };
+
+                select.addEventListener('change', syncEstablishment);
+            })();
+        </script>
 
 <?php render_footer(); ?>

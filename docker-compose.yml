@@ -16,5 +16,6 @@ services:
       - "8080:80"
     environment:
       API_BASE_URL: http://demo-gob-backend/api
+      PUBLIC_API_BASE_URL: http://localhost:8081/api
     depends_on:
       - demo-gob-backend
